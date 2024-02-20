@@ -4,13 +4,13 @@ CC = gcc
 PREF_SRC = ./src/
 PREF_OBJ = ./obj/
 
-SRC = $(PREF_SRC)main.c
-OBJ = $(PREF_OBJ)main.o
+SRC = $(wildcard $(PREF_SRC)*.c)
+OBJ = $(SRC:$(PREF_SRC)%.c=$(PREF_OBJ)%.o)
 
-$(TARGET): $(SRC) $(OBJ)
+$(TARGET): $(OBJ)
 	$(CC) $(OBJ) -o $(TARGET)
 
-$(PREF_OBJ)main.o: $(PREF_SRC)main.c
+$(PREF_OBJ)%.o: $(PREF_SRC)%.c
 	$(CC) -c $< -o $@
 
 clean:
