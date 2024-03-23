@@ -17,7 +17,7 @@ char *getInputFromUser()
     char *buffer = malloc(BUFF_SIZE);
     if (fgets(buffer, BUFF_SIZE, stdin) != NULL)
     {
-        buffer[strcspn(buffer, "\n")] = 0; // Remove newline
+        buffer[strcspn(buffer, "\n")] = 0;
         return buffer;
     }
     free(buffer);
@@ -52,14 +52,12 @@ void getLocation()
 
 void cp(char **arguments)
 {
-    // Verify the presence of arguments
     if (arguments[1] == NULL || arguments[2] == NULL)
     {
         fprintf(stderr, "Usage: cp <source> <destination>\n");
         return;
     }
 
-    // Open the source file and check for successful opening
     FILE *src = fopen(arguments[1], "r");
     if (src == NULL)
     {
@@ -67,29 +65,26 @@ void cp(char **arguments)
         return;
     }
 
-    // Open the destination file for writing and check for successful opening
     FILE *des = fopen(arguments[2], "w");
     if (des == NULL)
     {
         perror("Error opening destination file");
-        fclose(src); // Close the file and release resources
+        fclose(src);
         return;
     }
 
-    // Copy data from source to destination
     int ch;
     while ((ch = fgetc(src)) != EOF)
     {
         if (fputc(ch, des) == EOF)
         {
             perror("Error writing to destination file");
-            fclose(src); // Close files and release resources in case of error
+            fclose(src);
             fclose(des);
             return;
         }
     }
 
-    // Close files and release resources
     fclose(src);
     fclose(des);
 
@@ -187,7 +182,7 @@ char** splitArgument(char* str) {
 
 void help()
 {
-    setTextColor(33); // Yellow color
+    setTextColor(33);
     printf("Available commands:\n");
     resetTextColor();
     printf("------------------------------------------------------------------------------------------\n"
