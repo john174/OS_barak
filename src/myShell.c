@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <pwd.h>
 #include <fcntl.h>
-#include "MyShell.h"
+#include "myShell.h"
 #include <ctype.h>
+
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX 256
 #define DELIMITER ' '
@@ -149,26 +151,31 @@ void welcome()
            "                                           |,,-''                       ||     \n");
 }
 
-char **splitArgument(char *str) {
+char **splitArgument(char *str)
+{
     // Check if the input string is NULL or empty
-    if (str == NULL || str[0] == '\0') {
+    if (str == NULL || str[0] == '\0')
+    {
         printf("Empty command.\n");
         return NULL;
     }
 
-    int size = 1; // Initialize size to 1 to account for the NULL terminator at the end
+    int size = 1;                                     // Initialize size to 1 to account for the NULL terminator at the end
     char **arguments = malloc(size * sizeof(char *)); // Allocate memory for the array of strings
-    if (arguments == NULL) {
+    if (arguments == NULL)
+    {
         printf("Memory allocation failed.\n");
         exit(1);
     }
 
     char *token = strtok(str, " "); // Tokenize the input string using space as the delimiter
-    while (token != NULL) {
+    while (token != NULL)
+    {
         arguments[size - 1] = token; // Assign the token to the current position in the arguments array
         size++;
         arguments = realloc(arguments, size * sizeof(char *)); // Resize the arguments array to accommodate the next token
-        if (arguments == NULL) {
+        if (arguments == NULL)
+        {
             printf("Memory allocation failed.\n");
             exit(1);
         }
@@ -178,8 +185,6 @@ char **splitArgument(char *str) {
 
     return arguments;
 }
-
-
 
 void logout(char *str)
 {
@@ -206,7 +211,6 @@ void logout(char *str)
     printf("Exit success!!!\n");
     exit(EXIT_SUCCESS);
 }
-
 
 void cd(char **args)
 {
@@ -254,6 +258,95 @@ void cd(char **args)
     }
 }
 
+void rm(char *str)
+{
+    // Check for quotation marks at the beginning and end of the string
+    if (str[0] == '\"' || str[0] == '\'')
+    {
+        // Remove quotation marks from the string
+        char *end = str + strlen(str) - 1;
+        if (*end == '\"' || *end == '\'')
+        {
+            *end = '\0'; // Set the end of the string instead of the last quotation mark
+            str++;       // Move the beginning of the string past the quotation mark
+        }
+    }
+
+    // Attempt to delete the file
+    if (remove(str) != 0)
+    {
+        // If deletion fails, an error message is displayed
+        perror("Error deleting file");
+    }
+    else
+    {
+        // If the file is successfully deleted, a success message is displayed
+        printf("File successfully deleted.\n");
+    }
+}
+
+
+
+
+void mypipe(char **argv1, char **argv2) {
+    int pipefd[2];
+
+    // Create a pipe before creating child processes
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    pid_t pid1 = fork();
+    if (pid1 == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid1 == 0) { // First child process
+        // Redirect stdout to write to the pipe
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[0]); // Close unused ends of the pipe
+        close(pipefd[1]);
+
+        // Execute the first command
+        if (execvp(argv1[0], argv1) == -1) {
+            perror("execvp argv1");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        // Second fork to create the second child process
+        pid_t pid2 = fork();
+        if (pid2 == -1) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pid2 == 0) { // Second child process
+            // Redirect stdin to read from the pipe
+            dup2(pipefd[0], STDIN_FILENO);
+            close(pipefd[1]); // Close unused ends of the pipe
+            close(pipefd[0]);
+
+            // Execute the second command
+            if (execvp(argv2[0], argv2) == -1) {
+                perror("execvp argv2");
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            // In the parent process, close both ends of the pipe
+            close(pipefd[0]);
+            close(pipefd[1]);
+
+            // Wait for both child processes to finish
+            waitpid(pid1, NULL, 0);
+            waitpid(pid2, NULL, 0);
+        }
+    }
+}
+
+
+
 
 
 
@@ -271,7 +364,16 @@ void help()
            "------------------------------------------------------------------------------------------\n"
            "  cd <directory>                     - Change the current directory.\n"
            "------------------------------------------------------------------------------------------\n"
+           "  rm <file>                          - To remove the file.\n"
+           "------------------------------------------------------------------------------------------\n"
+           "  mypipe <command1> | <command2>     - Pipe the output of command1 to the input of command2.\n"
+           "------------------------------------------------------------------------------------------\n"
            "  help                               - Display this help message.\n"
+
+
+
+
+
            "\n");
     setTextColor(32);
 
@@ -299,9 +401,29 @@ void help()
     setTextColor(36);
     printf("Example: cd /path/to/directory/\n");
     resetTextColor();
+
+
+    printf("------------------------------------------------------------------------------------------\n"
+           "  mypipe <command1> | <command2>     - Pipe the output of command1 to the input of command2.\n"
+           "                                      ");
+    setTextColor(36);
+    printf("Example: \n");
+    resetTextColor();
+
+
+
+
+    printf("------------------------------------------------------------------------------------------\n"
+           "  rm <file>                          - Remove the file.\n"
+           "                                      ");
+    setTextColor(36);
+    printf("Example: rm file\n");
+    resetTextColor();
+
+
+
+
 }
-
-
 
 int main()
 {
@@ -320,8 +442,29 @@ int main()
             continue;
         }
         char **arguments = splitArgument(input);
-        char *command = arguments[0];
-        if (strcmp(command, "logout") == 0)
+
+        // Проверка на наличие символа '|' и разделение аргументов на две части
+        char **part1 = NULL;
+        char **part2 = NULL;
+        int foundPipe = 0; // Флаг для обнаружения символа '|'
+        for (int i = 0; arguments[i] != NULL; ++i) {
+            if (strcmp(arguments[i], "|") == 0) {
+                arguments[i] = NULL; // Разделение аргументов на две части
+                part1 = arguments;
+                part2 = &arguments[i + 1];
+                foundPipe = 1;
+                break; // Предполагаем, что в командной строке только один символ '|'
+            }
+        }
+
+        if (foundPipe) {
+            // Если найден символ '|', вызываем mypipe
+            mypipe(part1, part2);
+        }
+        
+        else{
+            char *command = arguments[0];
+            if (strcmp(command, "logout") == 0)
         {
             logout(input);
             break;
@@ -338,13 +481,24 @@ int main()
         {
             cd(arguments);
         }
+        else if (strcmp(command, "rm") == 0)
+        {
+            if (arguments[1] == NULL)
+            {
+                printf("Usage: delete <file>\n");
+            }
+            else
+            {
+                rm (arguments[1]);
+            }
+        }
         else
         {
             printf("Command not recognized: %s\n", command);
             free(arguments);
             continue;
         }
-
+        }
         free(input);
         free(arguments);
     }
