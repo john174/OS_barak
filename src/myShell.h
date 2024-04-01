@@ -1,6 +1,8 @@
 #ifndef MYSHELL_H
 #define MYSHELL_H
 
+
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -19,8 +21,9 @@ void    logout(char *str);
 void    cd(char **args);
 void    rm(char *str);
 void    mypipe(char **argv1, char **argv2);
-
-
+void    move(char **args);
+void    echoppend(char **args);
+void    echorite(char **args);
 
 
 
