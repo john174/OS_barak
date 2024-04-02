@@ -24,10 +24,7 @@ void    mypipe(char **argv1, char **argv2);
 void    move(char **args);
 void    echoppend(char **args);
 void    echorite(char **args);
-
-
-
-
-
+void    rf(char **args);
+void    wordCount(char **args);
 
 #endif

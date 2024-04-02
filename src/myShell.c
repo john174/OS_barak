@@ -501,6 +501,76 @@ void echorite(char **args) {
 
 
 
+void rf(char **args) {
+    // Check if the file path is provided
+    if (args[1] == NULL) {
+        fprintf(stderr, "Usage: rf <path_to_file>\n");
+        return;
+    }
+
+    // Try to open the specified file
+    FILE *file = fopen(args[1], "r");
+    if (!file) {
+        // If the file cannot be opened, assume it does not exist and do not print an error
+        return;
+    }
+
+    // Read and print the contents of the file with a visually appealing format
+    printf("\n=== Contents of the file: %s ===\n\n", args[1]);
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        printf("  %s", buffer);
+    }
+    printf("\n=== End of file ===\n\n");
+
+    // Close the file
+    fclose(file);
+}
+
+
+
+
+void wordCount(char **args) {
+    if (args[1] == NULL || args[2] == NULL) {
+        fprintf(stderr, "Usage: wc <options> <path_to_file>\nOptions:\n -l for line count\n -w for word count\n");
+        return;
+    }
+
+    char *option = args[1];
+    char *path = args[2];
+
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        fprintf(stderr, "File %s cannot be opened.\n", path);
+        return;
+    }
+
+    int lines = 0, words = 0;
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        if (strcmp(option, "-l") == 0) {
+            lines++;
+        } else if (strcmp(option, "-w") == 0) {
+            char *token = strtok(buffer, " \t\n");
+            while (token != NULL) {
+                words++;
+                token = strtok(NULL, " \t\n");
+            }
+        }
+    }
+
+    if (strcmp(option, "-l") == 0) {
+        printf("Lines: %d\n", lines);
+    } else if (strcmp(option, "-w") == 0) {
+        printf("Words: %d\n", words);
+    }
+
+    fclose(file);
+}
+
+
+
+
 
 
 
@@ -537,6 +607,10 @@ void help()
            "  echoppend <username> >> <msg> <path> - Append message to a file with username.\n"
            "------------------------------------------------------------------------------------------\n"
            "  echor <message> > <path_to_file>   - Write a message to a file. (Shortcut for echorite)\n"
+           "------------------------------------------------------------------------------------------\n"
+           "  rf <path_to_file>                  - Read and print the contents of a file.\n"
+           "------------------------------------------------------------------------------------------\n"
+           "  wc <options> <path_to_file>        - Count words or lines in a file.\n"
            "------------------------------------------------------------------------------------------\n"
            "  help                               - Display this help message.\n"
 
@@ -605,6 +679,28 @@ void help()
     printf("Example: echor Hello! > message.txt\n");
     resetTextColor();
 
+    printf("------------------------------------------------------------------------------------------\n"
+           "  rf <path_to_file>                  - Read and print the contents of a file.\n"
+           "                                      ");
+    setTextColor(36);
+    printf("Example: rf example.txt\n");
+    resetTextColor();
+    printf("------------------------------------------------------------------------------------------\n"
+       "  wc <options> <path_to_file>        - Count words or lines in a file.\n"
+       "                                      Options:\n"
+       "                                        -l : Count lines\n"
+       "                                        -w : Count words\n"
+       "                                      ");
+    setTextColor(36);
+    printf("Examples: wc -l example.txt (Counts lines)\n"
+       "                                                wc -w example.txt (Counts words)\n");
+    resetTextColor();
+    printf("------------------------------------------------------------------------------------------\n");
+    setTextColor(36);
+    printf("  help                               - Display this help message.\n");
+    resetTextColor();
+    printf("------------------------------------------------------------------------------------------\n");
+
 }
 
 
@@ -617,7 +713,6 @@ int main() {
     welcome(); // Display welcome message
     help(); // Display help information
 
-    // Main loop for shell operation
     while (1) {
         getLocation(); // Get current location
         printf(": ");
@@ -629,7 +724,6 @@ int main() {
         }
         char **arguments = splitArgument(input); // Split input into arguments
 
-        // Check for presence of '|' character and split arguments if found
         char **part1 = NULL;
         char **part2 = NULL;
         int foundPipe = 0; // Flag for detecting '|'
@@ -644,35 +738,34 @@ int main() {
         }
 
         if (foundPipe) {
-            // Call mypipe if '|' is found
             mypipe(part1, part2);
         } else {
             char *command = arguments[0];
             if (strcmp(command, "logout") == 0) {
-                logout(input); // Logout if command is 'logout'
+                logout(input);
                 break;
             } else if (strcmp(command, "help") == 0) {
-                help(); // Display help if command is 'help'
+                help();
             } else if (strcmp(command, "cp") == 0) {
-                cp(arguments); // Call cp function for copy
+                cp(arguments);
             } else if (strcmp(command, "cd") == 0) {
-                cd(arguments); // Call cd function for changing directory
+                cd(arguments);
             } else if (strcmp(command, "rm") == 0) {
                 if (arguments[1] == NULL) {
                     printf("Usage: delete <file>\n");
                 } else {
-                    rm(arguments[1]); // Call rm function for removing file
+                    rm(arguments[1]);
                 }
             } else if (strcmp(command, "move") == 0) {
-                move(arguments); // Call move function for moving file
+                move(arguments);
             } else if (strcmp(command, "echo") == 0) {
-                if (arguments[1] != NULL && arguments[2] != NULL) {
-                    echoppend(&arguments[1]);
-                } else {
-                    fprintf(stderr, "Error: echoppend requires two arguments.\n");
-                }
-            }else if (strcmp(command, "echor") == 0) {
+                echoppend(&arguments[1]);
+            } else if (strcmp(command, "echor") == 0) {
                 echorite(arguments);
+            } else if (strcmp(command, "rf") == 0) {
+                rf(arguments);
+            }else if (strcmp(command, "wc") == 0) {
+                wordCount(arguments);
             } else {
                 printf("Command not recognized: %s\n", command);
             }
